@@ -1,0 +1,30 @@
+[
+  {
+    "id": "001",
+    "name": "Alice Smith",
+    "email": "alice.smith@example.com",
+    "major": "Computer Science",
+    "gpa": 3.8
+  },
+  {
+    "id": "002",
+    "name": "Bob Johnson",
+    "email": "bob.johnson@example.com",
+    "major": "Electrical Engineering",
+    "gpa": 3.5
+  },
+  {
+    "id": "003",
+    "name": "Charlie Brown",
+    "email": "charlie.brown@example.com",
+    "major": "Mathematics",
+    "gpa": 3.9
+  },
+  {
+    "id": "004",
+    "name": "Diana Prince",
+    "email": "diana.prince@example.com",
+    "major": "Physics",
+    "gpa": 3.7
+  }
+]
