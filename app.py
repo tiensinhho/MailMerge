@@ -5,6 +5,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
+from email.header import Header
 import os
 import csv
 import json
@@ -34,6 +35,101 @@ def create_mail_merge_docx():
         except Exception as e:
             print(f"Error creating mail merge document: {e}")
 
+def send_bulk_emails_with_mail_merge():
+    """Create mail merge documents and send them as email attachments with HTML template body."""
+    try:
+        sender_email = ""
+        sender_password = "".replace("\xa0", "")
+        subject = input("Enter the email subject: ")
+
+        # Load HTML template for email body
+        html_template_path = "template.html"
+        if not os.path.exists(html_template_path):
+            print("Error: HTML template file not found!")
+            return
+
+        with open(html_template_path, 'r', encoding='utf-8') as f:
+            html_template = f.read()
+
+        # Create the output directory if it doesn't exist
+        if not os.path.exists("output"):
+            os.makedirs("output")
+
+        # Load data for mail merge
+        data_file_path = "data.json"
+        if not os.path.exists(data_file_path):
+            print("Error: Data file not found!")
+            return
+
+        template_path = "template.docx"
+        if not os.path.exists(template_path):
+            print("Error: Template file not found!")
+            return
+
+        # Create mail merge documents and send emails
+        try:
+            with open(data_file_path, 'r') as f:
+                context = json.load(f)
+
+            count = 0
+            for entry in context:
+                # Create mail merge document
+                doc = DocxTemplate(template_path)
+                doc.render(entry)
+                output_filename = "./output/{}_{}.docx".format(entry.get('id','output'), entry.get('name', 'output'))
+                doc.save(output_filename)
+
+                # Get recipient email (assuming 'email' field in data)
+                receiver_email = entry.get('email') or entry.get('Email')
+                if not receiver_email:
+                    print(f"Warning: No email found for {entry.get('name', 'unknown')}. Skipping...")
+                    continue
+
+                # Personalize HTML body with data
+                personalized_body = html_template
+                for key, value in entry.items():
+                    personalized_body = personalized_body.replace(f"{{{{{key}}}}}", str(value))
+
+                # Create email message with HTML content
+                msg = MIMEMultipart('alternative')
+                msg['From'] = sender_email
+                msg['To'] = receiver_email
+                msg['Subject'] = Header(subject, 'utf-8')
+                msg.attach(MIMEText(personalized_body, 'html', 'utf-8'))
+
+                # Attach the generated mail merge document
+                try:
+                    part = MIMEBase('application', 'octet-stream')
+                    with open(output_filename, 'rb') as attachment:
+                        part.set_payload(attachment.read())
+                    encoders.encode_base64(part)
+                    part.add_header('Content-Disposition', 'attachment', filename=os.path.basename(output_filename))
+                    msg.attach(part)
+                except Exception as e:
+                    print(f"Error attaching document for {receiver_email}: {e}")
+                    continue
+
+                # Send email
+                try:
+                    server = smtplib.SMTP('smtp.gmail.com', 587)
+                    server.starttls()
+                    server.login(sender_email, sender_password.encode("utf-8").decode("utf-8"))
+                    server.send_message(msg)
+                    server.quit()
+                    count += 1
+                    print(f"Email with mail merge document sent to {receiver_email}!")
+                except smtplib.SMTPAuthenticationError:
+                    print("Error: Authentication failed. Check your email and password.")
+                    break
+                except Exception as e:
+                    print(f"Error sending email to {receiver_email}: {e}")
+
+            print(f"\nMail merge & email sending completed! {count} emails sent.")
+        except Exception as e:
+            print(f"Error: {e}")
+    except Exception as e:
+        print(f"Error: {e}")
+
 def send_email():
     """Send an email with optional attachment."""
     try:
@@ -47,9 +143,9 @@ def send_email():
         msg = MIMEMultipart()
         msg['From'] = sender_email
         msg['To'] = receiver_email
-        msg['Subject'] = subject
+        msg['Subject'] = Header(subject, 'utf-8')
 
-        msg.attach(MIMEText(body, 'plain'))
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
         if attachment_path and os.path.exists(attachment_path):
             try:
@@ -57,7 +153,7 @@ def send_email():
                 with open(attachment_path, 'rb') as attachment:
                     part.set_payload(attachment.read())
                 encoders.encode_base64(part)
-                part.add_header('Content-Disposition', f'attachment; filename= {os.path.basename(attachment_path)}')
+                part.add_header('Content-Disposition', 'attachment', filename=os.path.basename(attachment_path))
                 msg.attach(part)
             except Exception as e:
                 print(f"Error attaching file: {e}")
@@ -119,8 +215,8 @@ def send_bulk_emails():
                 msg = MIMEMultipart()
                 msg['From'] = sender_email
                 msg['To'] = receiver_email
-                msg['Subject'] = subject
-                msg.attach(MIMEText(personalized_body, 'plain'))
+                msg['Subject'] = Header(subject, 'utf-8')
+                msg.attach(MIMEText(personalized_body, 'plain', 'utf-8'))
                 
                 # Attach file
                 try:
@@ -128,7 +224,7 @@ def send_bulk_emails():
                     with open(attachment_path, 'rb') as attachment:
                         part.set_payload(attachment.read())
                     encoders.encode_base64(part)
-                    part.add_header('Content-Disposition', f'attachment; filename= {os.path.basename(attachment_path)}')
+                    part.add_header('Content-Disposition', 'attachment', filename=os.path.basename(attachment_path))
                     msg.attach(part)
                 except Exception as e:
                     print(f"Error attaching file: {e}")
@@ -158,14 +254,15 @@ def display_menu():
     print("1. Create Mail Merge Document")
     print("2. Send Single Email")
     print("3. Send Bulk Emails")
-    print("4. Exit")
+    print("4. Send Mail Merge Documents via Email")
+    print("5. Exit")
     print("="*50)
 
 def main():
     """Main application loop with menu."""
     while True:
         display_menu()
-        choice = input("Select an option (1-4): ")
+        choice = input("Select an option (1-5): ")
         
         if choice == '1':
             print("\n--- Create Mail Merge Document ---")
@@ -177,10 +274,13 @@ def main():
             print("\n--- Send Bulk Emails ---")
             send_bulk_emails()
         elif choice == '4':
+            print("\n--- Send Mail Merge Documents via Email ---")
+            send_bulk_emails_with_mail_merge()
+        elif choice == '5':
             print("Thank you for using Mail Merge & Email Application. Goodbye!")
             break
         else:
-            print("Invalid option. Please select 1-4.")
+            print("Invalid option. Please select 1-5.")
 
 if __name__ == "__main__":
     main()
