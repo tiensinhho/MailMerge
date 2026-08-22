@@ -29,7 +29,7 @@ def create_mail_merge_docx():
                 context = json.load(f)
             for entry in context:
                 doc.render(entry)
-                output_filename = "./output/{}_{}.docx".format(entry.get('id','output'), entry.get('name', 'output'))
+                output_filename = "~/documents/output/{}_{}.docx".format(entry.get('id','output'), entry.get('name', 'output'))
                 doc.save(output_filename)
                 print(f"Mail merge document '{output_filename}' created successfully!")
         except Exception as e:
